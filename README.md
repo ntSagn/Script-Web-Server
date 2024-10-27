@@ -8,6 +8,7 @@
 4. Firewall đã mở port 53 cho dịch vụ DNS hoac tat
 5. SELinux đã được cấu hình phù hợp cho DNS
 6. Nếu cẩn thận nên tạo 1 snapshot để phòng hờ hư không thể fix thì revert về
+7. Máy client cần trỏ dns về dns của máy chủ web
 
 ## Tổng quan
 Script Bash này cung cấp giải pháp tự động để quản lý Apache web server và cấu hình DNS trên hệ thống CentOS/RHEL. Nó cung cấp một bộ tính năng toàn diện để thiết lập và quản lý môi trường web hosting, bao gồm cấu hình domain, quản lý vùng DNS và nhiều môi trường runtime khác nhau.
@@ -64,11 +65,11 @@ sudo ./webserver.sh
 
 ## Lưu ý quan trọng
 
-### Về bảo mật
-- Luôn tạo backup trước khi thực hiện các thay đổi lớn
-- Script tự động tạo backup các file cấu hình với timestamp
+### Luu y
 - Kiểm tra cài đặt firewall để đảm bảo truy cập đúng các dịch vụ web
-- Cập nhật gói hệ thống thường xuyên
+- Download source web tinh neu can voi lenh sau: "curl -O https://raw.githubusercontent.com/ntSagn/Script-Web-Server/refs/heads/main/static.zip" va giai nen bang lenh "unzip static.zip -d /var/www/html/sgu.edu.vn" voi sgu.edu.vn la ten mien ban muon paste source vao chon yes neu dang ton tai file index.html mau
+- Download file sql db source php:"wget --no-check-certificate 'https://drive.google.com/uc?export=download&id=1CMyTg0x6B8te4Q9yCWUk2Lj3NBD5powf' -O databasephp.sql" sau do thiet lap mysqld va tao db sau do dumb file sql vao
+- Download file source web php tu link drive:"https://drive.google.com/file/d/1FJzdm-dX3py2DbOphN56XnsIpvGlHt3k/view" va sau do giai nen nhu tren (wget ko xai duoc vi dung luong file)
 
 ### Các file cấu hình
 Script quản lý các file cấu hình sau:

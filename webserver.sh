@@ -28,13 +28,16 @@ ensure_installed() {
     local package=$1
     if ! rpm -q "$package" &>/dev/null; then
         echo "Dang cai goi: $package"
-        yum install "$package" -y
+        if ! yum install "$package" -y; then
+            echo "Loi: Khong the cai dat goi $package. Vui long kiem tra lai."
+            return
+        fi
     fi
 }
 
 # Ensure essential dependencies are installed
 ensure_dependencies() {
-    for package in httpd bind bind-utils; do
+    for package in httpd bind bind-utils epel-release; do
         ensure_installed "$package"
     done
 }
@@ -119,6 +122,17 @@ list_active_domains() {
             fi
         fi
     done
+}
+
+add_mongodb_repo() {
+    cat > /etc/yum.repos.d/mongodb-org.repo << 'EOF'
+[mongodb-org-6.0]
+name=MongoDB Repository
+baseurl=https://repo.mongodb.org/yum/redhat/$releasever/mongodb-org/6.0/x86_64/
+gpgcheck=1
+enabled=1
+gpgkey=https://www.mongodb.org/static/pgp/server-6.0.asc
+EOF
 }
 
 # Function to backup a file
@@ -311,6 +325,7 @@ install_dbms() {
             log_action "Da cai dat va khoi dong PostgreSQL."
             ;;
         3)
+            add_mongodb_repo
             ensure_installed mongodb-org
             systemctl start mongod
             systemctl enable mongod
@@ -376,6 +391,8 @@ remove_web_server() {
         restart_service httpd
         restart_service named
         
+
+        
         log_action "Da go bo may chu web cho $domain."
     else
         echo "Khong tim thay cau hinh cho $domain."
@@ -388,12 +405,13 @@ while true; do
     echo "Quan ly Apache Web Server va DNS"
     echo "1. Dam bao cac dependency da duoc cai dat"
     echo "2. Them domain moi va vung DNS"
-    echo "3. Liet ke cac domain dang hoat dong"
-    echo "4. Them hosting cho domain"
+    echo "3. Them hosting cho domain"
+    echo "4. Liet ke cac domain dang hoat dong"
     echo "5. Cai dat Web Runtime (Tomcat, PHP, Node.js)"
     echo "6. Cai dat DBMS (MySQL, PostgreSQL, SQLite)"
     echo "7. Go bo may chu web"
-    echo "8. Thoat"
+    echo "8. Tat tuong lua"
+    echo "9. Thoat"
     read -p "Nhap lua chon: " choice
 
     clear
@@ -405,10 +423,10 @@ while true; do
             add_domain_and_zone
             ;;
         3)
-            list_active_domains
+            add_hosting
             ;;
         4)
-            add_hosting
+            list_active_domains
             ;;
         5)
             install_web_runtime
@@ -420,6 +438,12 @@ while true; do
             remove_web_server
             ;;
         8)
+            echo "Tat tuong lua..."
+            systemctl stop firewalld
+            systemctl disable firewalld
+            echo "Firewall da duoc tat."
+            ;;    
+        9)
             echo "Dang thoat..."
             exit 0
             ;;
