@@ -61,7 +61,8 @@ sudo ./webserver.sh
    - Tùy chọn 5: Cài đặt Web Runtime
    - Tùy chọn 6: Cài đặt DBMS
    - Tùy chọn 7: Gỡ bỏ web server
-   - Tùy chọn 8: Thoát
+   - Tùy chọn 8: Tắt tường lửa
+   - Tùy chọn 9: Thoát
 
 ## Lưu ý quan trọng
 
