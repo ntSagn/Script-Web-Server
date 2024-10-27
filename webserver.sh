@@ -54,6 +54,15 @@ host_exists() {
     grep -q "ServerName $host" /etc/httpd/conf.d/*.conf
 }
 
+regex_zone() {
+    local domain=$1
+    if [[ ! "$domain" =~ ^[a-zA-Z0-9.-]+$ ]] || [[ ! "$domain" =~ \. ]] || [[ "$domain" =~ \.$ ]]; then
+        echo "Ten mien khong hop le. Vui long nhap lai."
+        return 1
+    fi
+    return 0
+}
+
 # Logging function
 log_action() {
     local message=$1
@@ -152,6 +161,10 @@ add_hosting() {
     read -p "Nhap folder name cho source (mac dinh la domain name): " folder_name
     if host_exists "$domain"; then
         echo "Domain da ton tai trong cau hinh."
+        return
+    fi
+    if regex_zone "$domain"; then
+        echo "Ten mien khong hop le. Vui long nhap lai."
         return
     fi
     folder_name=${folder_name:-$domain}
@@ -253,6 +266,9 @@ add_domain_and_zone() {
     read -p "Nhap IP address cho server: " ip_address
     if zone_exists "$domain"; then
         echo "Domain da ton tai trong cau hinh."
+        return
+    fi
+    if ! regex_zone "$domain"; then
         return
     fi
     # Create DNS forward zone
@@ -408,7 +424,7 @@ while true; do
     echo "3. Them hosting cho domain"
     echo "4. Liet ke cac domain dang hoat dong"
     echo "5. Cai dat Web Runtime (Tomcat, PHP, Node.js)"
-    echo "6. Cai dat DBMS (MySQL, PostgreSQL, SQLite)"
+    echo "6. Cai dat DBMS (MySQL, PostgreSQL, MongoDB)"
     echo "7. Go bo may chu web"
     echo "8. Tat tuong lua"
     echo "9. Thoat"
