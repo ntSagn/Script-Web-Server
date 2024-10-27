@@ -163,8 +163,7 @@ add_hosting() {
         echo "Domain da ton tai trong cau hinh."
         return
     fi
-    if regex_zone "$domain"; then
-        echo "Ten mien khong hop le. Vui long nhap lai."
+    if ! regex_zone "$domain"; then
         return
     fi
     folder_name=${folder_name:-$domain}
@@ -418,7 +417,7 @@ remove_web_server() {
 # Main menu
 while true; do
     echo "==============================="
-    echo "Quan ly Apache Web Server va DNS"
+    echo "Quan ly Web Server va DNS"
     echo "1. Dam bao cac dependency da duoc cai dat"
     echo "2. Them domain moi va vung DNS"
     echo "3. Them hosting cho domain"
