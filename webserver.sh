@@ -133,17 +133,6 @@ list_active_domains() {
     done
 }
 
-add_mongodb_repo() {
-    cat > /etc/yum.repos.d/mongodb-org.repo << 'EOF'
-[mongodb-org-6.0]
-name=MongoDB Repository
-baseurl=https://repo.mongodb.org/yum/redhat/$releasever/mongodb-org/6.0/x86_64/
-gpgcheck=1
-enabled=1
-gpgkey=https://www.mongodb.org/static/pgp/server-6.0.asc
-EOF
-}
-
 # Function to backup a file
 backup_file() {
     local file=$1
@@ -168,71 +157,14 @@ add_hosting() {
     fi
     folder_name=${folder_name:-$domain}
 
-    echo "Cau hinh web runtime cho website:"
-    echo "1. Tomcat"
-    echo "2. PHP"
-    echo "3. Node.js"
-    echo "4. Web tinh"
-    read -p "Chon mot tuy chon: " runtime_choice
-
     mkdir -p /var/www/html/$folder_name
     check_command_success "Dang tao thu muc website"
     chown -R apache:apache /var/www/html/$folder_name
     chmod 755 /var/www /var/www/html
     
     backup_file /etc/httpd/conf.d/$domain.conf
-    case $runtime_choice in
-        1)
-            # Tomcat configuration
-            cat << EOF > /etc/httpd/conf.d/$domain.conf
-<VirtualHost *:80>
-    ServerAdmin webmaster@$domain
-    DocumentRoot /var/www/html/$folder_name
-    ServerName $domain
-    ServerAlias $domain
-    ProxyPass / ajp://localhost:8009/
-    ProxyPassReverse / ajp://localhost:8009/
-</VirtualHost>
-EOF
-            ensure_installed tomcat
-            systemctl start tomcat
-            systemctl enable tomcat
-            log_action "Da cau hinh runtime Tomcat cho $domain."
-            ;;
-        2)
-            # PHP configuration
-            cat << EOF > /etc/httpd/conf.d/$domain.conf
-<VirtualHost *:80>
-    ServerAdmin webmaster@$domain
-    DocumentRoot /var/www/html/$folder_name
-    ServerName $domain
-    ServerAlias $domain
-</VirtualHost>
-EOF
-            ensure_installed php
-            ensure_installed php-mysql
-            restart_service httpd
-            log_action "Da cau hinh runtime PHP cho $domain."
-            ;;
-        3)
-            # Node.js configuration
-            cat << EOF > /etc/httpd/conf.d/$domain.conf
-<VirtualHost *:80>
-    ServerAdmin webmaster@$domain
-    ServerName $domain
-    ServerAlias $domain
-    ProxyRequests off
-    <Proxy *>
-        Require all granted
-    </Proxy>
-    ProxyPass / http://localhost:3000/
-    ProxyPassReverse / http://localhost:3000/
-</VirtualHost>
-EOF
-            ensure_installed nodejs
-            log_action "Da cau hinh runtime Node.js cho $domain."
-            ;;
-        4)
+
+
             cat << EOF > /etc/httpd/conf.d/$domain.conf
 <VirtualHost *:80>
     ServerAdmin webmaster@$domain
@@ -242,12 +174,6 @@ EOF
 </VirtualHost>
 EOF
             log_action "Da cau hinh web tinh cho $domain."
-            ;;
-        *)
-            echo "Tuy chon khong hop le"
-            return
-            ;;
-    esac
     
     if [ ! -f /var/www/html/$folder_name/index.html ]; then
         echo "<html><body><h1>Welcome to $domain</h1></body></html>" > /var/www/html/$folder_name/index.html
@@ -257,6 +183,37 @@ EOF
     
     restart_service httpd
     log_action "Da thiet lap hosting cho $domain trong thu muc /var/www/html/$folder_name"
+}
+
+setup_https() {
+    read -p "Enter the domain name to configure HTTPS: " domain
+    local conf_file="/etc/httpd/conf.d/$domain.conf"
+
+    if grep -q "443" "$conf_file"; then
+        echo "HTTPS is already configured for $domain."
+    else
+        yum install mod_ssl openssl -y
+        
+        # Generate SSL certificate
+        openssl req -x509 -nodes -days 365 -newkey rsa:2048 -keyout /etc/pki/tls/private/$domain.key -out /etc/pki/tls/certs/$domain.crt
+        
+        # Configure Virtual Host for HTTPS
+        cat << EOF >> "$conf_file"
+<VirtualHost *:443>
+    ServerAdmin webmaster@$domain
+    DocumentRoot /var/www/html/$domain
+    ServerName $domain
+    ServerAlias $domain
+    SSLEngine on
+    SSLCertificateFile /etc/pki/tls/certs/$domain.crt
+    SSLCertificateKeyFile /etc/pki/tls/private/$domain.key
+</VirtualHost>
+EOF
+
+        # Restart Apache service
+        systemctl restart httpd
+        echo "HTTPS setup completed for $domain."
+    fi
 }
 
 # Function to add a new domain and DNS zone
@@ -280,80 +237,6 @@ add_domain_and_zone() {
     restart_service named
 
     log_action "Da them domain $domain voi vung DNS."
-}
-
-# Function to install web runtime (Tomcat, PHP, Node.js)
-install_web_runtime() {
-    echo "Chon web runtime de cai dat:"
-    echo "1. Tomcat"
-    echo "2. PHP"
-    echo "3. Node.js"
-    echo "4. Huy"
-    read -p "Nhap lua chon: " runtime_choice
-    case $runtime_choice in
-        1)
-            ensure_installed tomcat
-            systemctl start tomcat
-            systemctl enable tomcat
-            log_action "Da cai dat va khoi dong Tomcat."
-            ;;
-        2)
-            ensure_installed php
-            ensure_installed php-mysql
-            restart_service httpd
-            log_action "Da cai dat PHP va khoi dong lai Apache."
-            ;;
-        3)
-            ensure_installed nodejs
-            log_action "Da cai dat Node.js."
-            ;;
-        4)
-            echo "Huy bo qua trinh cai dat Web runtime."
-            return
-            ;;
-        *)
-            echo "Lua chon khong hop le"
-            ;;
-    esac
-}
-
-# Function to install DBMS (MySQL, PostgreSQL, SQLite)
-install_dbms() {
-    echo "Chon DBMS de cai dat:"
-    echo "1. MySQL"
-    echo "2. PostgreSQL"
-    echo "3. MongoDB"
-    echo "4. Huy"
-    read -p "Nhap lua chon: " dbms_choice
-    case $dbms_choice in
-        1)
-            ensure_installed mariadb-server
-            systemctl start mariadb
-            systemctl enable mariadb
-            log_action "Da cai dat va khoi dong MySQL."
-            ;;
-        2)
-            ensure_installed postgresql-server
-            postgresql-setup initdb
-            systemctl start postgresql
-            systemctl enable postgresql
-            log_action "Da cai dat va khoi dong PostgreSQL."
-            ;;
-        3)
-            add_mongodb_repo
-            ensure_installed mongodb-org
-            systemctl start mongod
-            systemctl enable mongod
-            log_action "Da cai dat va khoi dong MongoDB."
-            ;;
-        4)
-            echo "Huy bo qua trinh cai dat DBMS."
-            return
-            ;;
-        *)
-            echo "Lua chon khong hop le"
-            ;;
-    esac
 }
 
 # Restart a service
@@ -384,14 +267,6 @@ remove_web_server() {
         # Remove Apache configuration
         rm -f "$config_file"
         
-        # Remove DNS zone files
-        backup_file "/var/named/forward.$domain"
-        rm -f "/var/named/forward.$domain"
-        
-        # Remove zone from named.rfc1912.zones
-        backup_file /etc/named.rfc1912.zones
-        sed -i "/zone \"$domain\" IN {/,/^\}/d" /etc/named.rfc1912.zones
-        
         # Remove document root if it exists and is not empty
         if [ -d "$document_root" ] && [ "$(ls -A "$document_root")" ]; then
             if ask_yes_no "Ban co muon xoa document root tai $document_root?"; then
@@ -405,8 +280,6 @@ remove_web_server() {
         # Restart services
         restart_service httpd
         restart_service named
-        
-
         
         log_action "Da go bo may chu web cho $domain."
     else
@@ -422,11 +295,10 @@ while true; do
     echo "2. Them domain moi va vung DNS"
     echo "3. Them hosting cho domain"
     echo "4. Liet ke cac domain dang hoat dong"
-    echo "5. Cai dat Web Runtime (Tomcat, PHP, Node.js)"
-    echo "6. Cai dat DBMS (MySQL, PostgreSQL, MongoDB)"
-    echo "7. Go bo may chu web"
-    echo "8. Tat tuong lua"
-    echo "9. Thoat"
+    echo "5. Go bo may chu web"
+    echo "6. Tat tuong lua"
+    echo "7. Them HTTPS Local"
+    echo "8. Thoat"
     read -p "Nhap lua chon: " choice
 
     clear
@@ -444,21 +316,18 @@ while true; do
             list_active_domains
             ;;
         5)
-            install_web_runtime
-            ;;
-        6)
-            install_dbms
-            ;;
-        7)
             remove_web_server
             ;;
-        8)
+        6)
             echo "Tat tuong lua..."
             systemctl stop firewalld
             systemctl disable firewalld
             echo "Firewall da duoc tat."
-            ;;    
-        9)
+            ;;   
+        7)
+            setup_https
+            ;;     
+        8)
             echo "Dang thoat..."
             exit 0
             ;;
